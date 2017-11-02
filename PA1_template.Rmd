@@ -3,23 +3,82 @@ title: "Reproducible Research: Peer Assessment 1"
 output: 
   html_document:
     keep_md: true
----
-
 
 ## Loading and preprocessing the data
 
+Step One: Load in the data
+```{r}
+df <- read.csv("activity.csv")
+```
+Step Two: Check the head of the data
+```{r}
+head(df)
 
-
+```
 ## What is mean total number of steps taken per day?
+```{r}
+library(ggplot2)
 
+df.steps <- tapply(df$steps, df$date, Fun=sum, na.rm=True)
 
+qplot(df.steps,xlab="Total steps per day",ylab="Freq using banwidth",binwidth= 1000)
+```
 
+The next step is to find the mean total number of steps per day.
+
+```{r}      
+mean(df.steps, na.rm=TRUE)
+median(df.steps, na.rm=TRUE)
+```
 ## What is the average daily activity pattern?
+```{r}
+df.averages <- aggregate(x=list(steps=df$steps), by=list(interval=df$interval), FUN=mean, na.rm=TRUE)
+ggplot(data=df.averages, aes(x=interval, y=steps)) + geom_line() + xlab("Intervals set at 5 minutes") + ylab("Average of steps taken")
+```
+Further, on average for all days in the dataset df, the 5 minute intervals contains the following maximum number of steps:
 
-
-
+```{r}
+df.averages[which.max(df.averages$steps),]
+```
 ## Imputing missing values
-
-
-
+```{r}
+df.missing <- is.na(df$steps)
+table(df.missing)
+nafiller <- function(steps, interval){
+  filler <- NA
+  if (!is.na(steps))
+    filler <- c(steps)
+  else
+    filler <- (df.averages[df.averages$interval==interval, "steps"])
+  return(filler)
+}
+myfill.df <- df
+myfill.df$steps <- mapply(nafiller, myfill.df$steps, myfill.df$interval)
+head(myfill.df)
+```
+The next thing we can do is utilize the histogram for visualization with the filled in data set.
+```{r}
+myts <- tapply(myfill.df$steps, myfill.df$date, FUN=sum)
+qplot(myts, binwidth=1000, xlab="Total Number of Steps per Day",main="Total Number of Steps per Day After Imputation")
+mean(myts)
+median(myts)
+```
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+week.identify <- function(date){
+ day <- weekdays(date)
+ if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"))
+   return("Weekday")
+ else if (day %in% c("Saturday", "Sunday"))
+   return("Weekend")
+ else
+   stop("Invalid Date")
+}  
+myfill.df$date <- as.Date(myfill.df$date)
+myfill.df$day <- sapply(myfill.df$date, FUN=week.identify)
+head(myfill.df$day)
+avg <- aggregate(steps ~ interval + day, data=myfill.df, mean)
+ggplot(avg, aes(interval, steps))+geom_line()+ facet_grid(day ~ .) + xlab("Intervals at 5 minutes") + ylab("# of Steps")
+```
+
+From the graph we see that weekday steps start out similar to the weekend steps. The difference is that more regular paterns occur in the weekend steps.
